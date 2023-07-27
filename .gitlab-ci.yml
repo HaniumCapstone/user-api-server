@@ -1,8 +1,12 @@
 image: node:latest
 
+cache:
+  paths:
+    - node_modules
+    - dist
+
 before_script:
   - apt-get update -qy
-
 
 stages:
   - libs
@@ -12,18 +16,11 @@ stages:
 
 npm-job:
   stage: libs
-  cache:
-    paths:
-      - node_modules
   script:
-    - npm install
-    - npm install --save-dev jest eslint
+    - npm ci
 
 build-job: # This job runs in the build stage, which runs first.
   stage: build
-  cache:
-    paths:
-      - dist
   script:
     - echo "Compiling the code..."
     - npm run build
