@@ -1,22 +1,26 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Query } from '@nestjs/common';
 import { UserService } from './user.service';
 import { CreateUserDto } from './dto/create-user.dto';
+import { ApiBody, ApiCreatedResponse, ApiResponse } from '@nestjs/swagger';
+import { KakaoUserProfileDto } from './dto/kakao-user-profile.dto';
 
+@ApiResponse({status:200, description:'성공'})
 @Controller('user')
 export class UserController {
   constructor(private readonly userService: UserService) { }
 
-  @Post()
+  @ApiCreatedResponse({type:KakaoUserProfileDto, description:'성공'})
+  @Post('/join')
   join(@Body() createUserDto: CreateUserDto) {
-    return this.userService.join(createUserDto);
+    return this.userService.join(createUserDto.kAccessToken);
   }
 
-  @Post()
-  login() {
-    return this.userService.login();
+  @Post('/login')
+  login(@Body() createUserDto: CreateUserDto) {
+    return this.userService.login(createUserDto.kAccessToken);
   }
 
-  @Post()
+  @Post('/logout')
   logout() {
     return this.userService.logout();
   }
@@ -28,17 +32,17 @@ export class UserController {
   }
 
   // http://localhost/user/:uid/profile
-  @Get(':uid/profile')
+  @Get('/profile/:uid')
   profile(@Param('uid') uid: number) {
     return this.userService.profile(uid);
   }
 
-  @Post(':uid/mbti')
+  @Post('/mbti/:uid')
   createMBTI(@Param('uid') uid: number) {
     return this.userService.createMBTI(uid);
   }
 
-  @Patch(':uid/mbti')
+  @Patch('/mbti/:uid')
   updateMBTI(@Param('uid') uid: number) {
     return this.userService.updateMBTI(uid);
   }
