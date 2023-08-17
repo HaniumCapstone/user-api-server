@@ -9,7 +9,7 @@ class KakaoUserAccountProfileDto{
   @ApiProperty()
   profile_image_url: string;
   @ApiProperty()
-  is_default_image: false
+  is_default_image: boolean;
 }
 
 class KakaoUserPorpertiesDto {
@@ -23,9 +23,9 @@ class KakaoUserPorpertiesDto {
 
 class KakaoUserAccountDto{
   @ApiProperty()
-  profile_nickname_needs_agreement: false;
+  profile_nickname_needs_agreement: boolean;
   @ApiProperty()
-  profile_image_needs_agreement: false;
+  profile_image_needs_agreement: boolean;
   @ApiProperty({type:KakaoUserAccountProfileDto})
   profile:KakaoUserAccountProfileDto
 }

@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { User } from './entities/user.entity';
 import { Repository } from 'typeorm';
@@ -6,11 +6,13 @@ import { HttpService } from '@nestjs/axios';
 import { catchError, firstValueFrom } from 'rxjs';
 import { AxiosError } from 'axios';
 import { KakaoUserProfileDto } from './dto/kakao-user-profile.dto';
+import { JwtService } from '@nestjs/jwt';
 
 @Injectable()
 export class UserService {
   constructor(
     @InjectRepository(User) private repository: Repository<User>,
+    private readonly jwtService: JwtService,
     private readonly httpService: HttpService
   ) { }
   private readonly logger = new Logger(UserService.name)
@@ -18,34 +20,43 @@ export class UserService {
   private readonly kakaoAPIProfile = 'https://kapi.kakao.com/v2/user/me';
 
   private async getKakaoProile(kAccessToken: string): Promise<KakaoUserProfileDto | null> {
-    if (!kAccessToken) return null
-
     const { data } = await firstValueFrom(this.httpService.post(this.kakaoAPIProfile, {}, {
       headers: {
         "Authorization": "Bearer " + kAccessToken,
         "Content-type": "application/x-www-form-urlencoded;charset=utf-8"
       }
     }).pipe(catchError((error: AxiosError) => {
-      // 잘못된 액세트토큰을 줬을 때도 아래 코드가 실행되지 않습니다.
-      // 차후 확인이 필요해보입니다. 
       this.logger.error(error.response.data);
-      throw "can't get kakao user data."
+      throw new UnauthorizedException()
     })))
 
     return data;
   }
 
+  createToken(claimPlain): { accessToken: string } {
+    const accessToken = this.jwtService.sign(claimPlain);
+    return { accessToken }
+  }
+
   async join(kAccessToken: string) {
-    const userData = await this.getKakaoProile(kAccessToken)
+    const kakaoProfile = await this.getKakaoProile(kAccessToken);
+    const userProfile = await this.repository.findOne({
+      where: { uid: kakaoProfile.id },
+      select: { user_mbti: true, user_name: true, created_at: true }
+    })
 
-    // responce error 떨어뜨릴 것.
-    if (!userData) return false
+    if (userProfile) return userProfile;
 
-    return await this.getKakaoProile(kAccessToken) ?? false;
+    await this.repository.createQueryBuilder().insert().into(User).values([
+      { uid: kakaoProfile.id, user_name: kakaoProfile.properties.nickname }
+    ]).execute();
+
+    // 현재는 프로필 정보만 반환하지만 차후에는 jwt 토큰과 함께 반환
+    return this.createToken(await this.profile(kakaoProfile.id))
   }
 
   async login(kAccessToken: string) {
-    return await this.getKakaoProile(kAccessToken) ?? false;
+    return await this.getKakaoProile(kAccessToken);
   }
 
   logout() {
@@ -53,11 +64,14 @@ export class UserService {
   }
 
   users() {
-    return this.repository.createQueryBuilder('user').getMany();
+    return this.repository.createQueryBuilder('user_info').getMany();
   }
 
-  profile(uid: number) {
-    return uid
+  async profile(uid: number) {
+    return await this.repository.findOneOrFail({
+      where: { uid: uid },
+      select: { user_mbti: true, user_name: true, created_at: true }
+    })
   }
 
   createMBTI(uid: number) {
