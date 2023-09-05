@@ -56,7 +56,6 @@ export class UserService {
   }
 
   async verifyToken(token: string) {
-
     try {
       return this.jwtService.verify(token);
     } catch (e) {
@@ -80,15 +79,10 @@ export class UserService {
   }
 
   async createMBTI(token: string, mbti: string) {
+    this.verifyToken(token)
     const uid = this.jwtService.decode(token)['uid']
-
     await this.repository.update({ uid }, { user_mbti: mbti })
-
     return await this.createToken(await this.profile(uid))
-  }
-
-  updateMBTI(uid: number) {
-    return uid
   }
 
 }

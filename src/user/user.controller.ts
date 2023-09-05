@@ -21,15 +21,14 @@ export class UserController {
   }
 
   @Post('/verify-token')
-  login(@Headers('Authorization') bearerToken: string, @Body() createUserDto: CreateUserDto) {
-    let token = ''
+  login(@Headers('Authorization') auth: string, @Body() createUserDto: CreateUserDto) {
     try {
-      token = bearerToken.split('Bearer ')[1]
+      const token = auth.replace('Bearer ', '');
+      return this.userService.verifyToken(token);
     } catch (err) {
       throw new BadRequestException();
     }
 
-    return this.userService.verifyToken(token);
   }
 
   @Post('/logout')
@@ -61,13 +60,13 @@ export class UserController {
   @Post('/mbti')
   createMBTI(@Headers('Authorization') auth: string, @Body('mbti') mbti: string) {
     const token = auth.replace('Bearer ', '');
-    console.log(auth, token)
     return this.userService.createMBTI(token, mbti);
   }
 
-  @Patch('/mbti/:uid')
-  updateMBTI(@Headers('Header') jwt: string, @Param('uid') uid: number) {
-    return this.userService.updateMBTI(uid);
+  @Patch('/mbti')
+  updateMBTI(@Headers('Header') auth: string, @Body('mbti') mbti: string) {
+    const token = auth.replace('Bearer ', '');
+    return this.userService.createMBTI(token, mbti);
   }
 
 }
