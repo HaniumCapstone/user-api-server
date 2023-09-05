@@ -33,30 +33,35 @@ export class UserService {
     return data;
   }
 
-  createToken(claimPlain): { accessToken: string } {
-    const accessToken = this.jwtService.sign(claimPlain);
-    return { accessToken }
+  async createToken(claimPlain): Promise<{ accessToken: string }> {
+    return {
+      accessToken: await this.jwtService.signAsync(JSON.stringify(claimPlain)),
+    };
   }
 
   async join(kAccessToken: string) {
     const kakaoProfile = await this.getKakaoProile(kAccessToken);
     const userProfile = await this.repository.findOne({
       where: { uid: kakaoProfile.id },
-      select: { user_mbti: true, user_name: true, created_at: true }
+      select: { user_mbti: true, user_name: true, uid: true }
     })
 
-    if (userProfile) return userProfile;
+    if (userProfile) return await this.createToken(userProfile);
 
     await this.repository.createQueryBuilder().insert().into(User).values([
       { uid: kakaoProfile.id, user_name: kakaoProfile.properties.nickname }
     ]).execute();
 
-    // 현재는 프로필 정보만 반환하지만 차후에는 jwt 토큰과 함께 반환
-    return this.createToken(await this.profile(kakaoProfile.id))
+    return await this.createToken(await this.profile(kakaoProfile.id))
   }
 
-  async login(kAccessToken: string) {
-    return await this.getKakaoProile(kAccessToken);
+  async verifyToken(token: string) {
+
+    try {
+      return this.jwtService.verify(token);
+    } catch (e) {
+      throw new UnauthorizedException();
+    }
   }
 
   logout() {
@@ -70,12 +75,16 @@ export class UserService {
   async profile(uid: number) {
     return await this.repository.findOneOrFail({
       where: { uid: uid },
-      select: { user_mbti: true, user_name: true, created_at: true }
+      select: { user_mbti: true, user_name: true, uid: true }
     })
   }
 
-  createMBTI(uid: number) {
-    return uid
+  async createMBTI(token: string, mbti: string) {
+    const uid = this.jwtService.decode(token)['uid']
+
+    await this.repository.update({ uid }, { user_mbti: mbti })
+
+    return await this.createToken(await this.profile(uid))
   }
 
   updateMBTI(uid: number) {
