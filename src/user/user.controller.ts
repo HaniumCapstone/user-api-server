@@ -36,6 +36,7 @@ export class UserController {
     return this.userService.logout();
   }
 
+
   @ApiOperation({ description: "for dev only" })
   @Get('/all')
   users() {
@@ -47,6 +48,17 @@ export class UserController {
     // 헤더 토큰을 파싱해 UID를 얻어 사용
   }
 
+  @Get('/get-match')
+  async getMatch(@Param('mbti') mbti: string) {
+    return this.userService.getMatch(mbti)
+  }
+
+  @Post('/update-target')
+  async updateTarget(@Headers('Authorization') auth: string, @Body('character') character: number) {
+    const token = auth.replace('Bearer ', '');
+    console.log(token)
+    return this.userService.createTarget(token, +character)
+  }
 
   @Get('/profile/:uid')
   async profile(@Param('uid') uid: string) {
@@ -57,16 +69,20 @@ export class UserController {
     }
   }
 
-  @Post('/mbti')
-  createMBTI(@Headers('Authorization') auth: string, @Body('mbti') mbti: string) {
-    const token = auth.replace('Bearer ', '');
-    return this.userService.createMBTI(token, mbti);
+  @Get('/character/:character_id')
+  async getCharacterById(@Param('character_id') id) {
+    try {
+      return await this.userService.getCharacterById(+id);
+    } catch (err) {
+      throw new NotFoundException();
+    }
   }
 
-  @Patch('/mbti')
-  updateMBTI(@Headers('Header') auth: string, @Body('mbti') mbti: string) {
-    const token = auth.replace('Bearer ', '');
-    return this.userService.createMBTI(token, mbti);
+  @Post('/mbti')
+  createMBTI(@Headers('Authorization') auth: string, @Body('mbti') mbti: string) {
+    if (!auth) { throw new UnauthorizedException() };
+
+    return this.userService.createMBTI(auth.replace('Bearer ', ''), mbti);
   }
 
 }

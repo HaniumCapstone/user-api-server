@@ -20,4 +20,7 @@ export class User {
 
   @UpdateDateColumn()
   updated_at: Date;
+
+  @Column()
+  character_id: number;
 }

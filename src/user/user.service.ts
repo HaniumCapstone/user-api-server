@@ -1,37 +1,21 @@
-import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { User } from './entities/user.entity';
 import { Repository } from 'typeorm';
-import { HttpService } from '@nestjs/axios';
-import { catchError, firstValueFrom } from 'rxjs';
-import { AxiosError } from 'axios';
-import { KakaoUserProfileDto } from './dto/kakao-user-profile.dto';
 import { JwtService } from '@nestjs/jwt';
+import { KakaoauthService } from 'src/kakaoauth/kakaoauth.service';
+import { MbtiService } from 'src/mbti/mbti.service';
+import { CharacterService } from 'src/character/character.service';
 
 @Injectable()
 export class UserService {
   constructor(
     @InjectRepository(User) private repository: Repository<User>,
     private readonly jwtService: JwtService,
-    private readonly httpService: HttpService
+    private readonly mbtiService: MbtiService,
+    private readonly characterService: CharacterService,
+    private readonly kakaoauthService: KakaoauthService
   ) { }
-  private readonly logger = new Logger(UserService.name)
-
-  private readonly kakaoAPIProfile = 'https://kapi.kakao.com/v2/user/me';
-
-  private async getKakaoProile(kAccessToken: string): Promise<KakaoUserProfileDto | null> {
-    const { data } = await firstValueFrom(this.httpService.post(this.kakaoAPIProfile, {}, {
-      headers: {
-        "Authorization": "Bearer " + kAccessToken,
-        "Content-type": "application/x-www-form-urlencoded;charset=utf-8"
-      }
-    }).pipe(catchError((error: AxiosError) => {
-      this.logger.error(error.response.data);
-      throw new UnauthorizedException()
-    })))
-
-    return data;
-  }
 
   async createToken(claimPlain): Promise<{ accessToken: string }> {
     return {
@@ -40,7 +24,7 @@ export class UserService {
   }
 
   async join(kAccessToken: string) {
-    const kakaoProfile = await this.getKakaoProile(kAccessToken);
+    const kakaoProfile = await this.kakaoauthService.getProile(kAccessToken);
     const userProfile = await this.repository.findOne({
       where: { uid: kakaoProfile.id },
       select: { user_mbti: true, user_name: true, uid: true }
@@ -71,10 +55,14 @@ export class UserService {
     return this.repository.createQueryBuilder('user_info').getMany();
   }
 
+
+
   async profile(uid: number) {
     return await this.repository.findOneOrFail({
       where: { uid: uid },
-      select: { user_mbti: true, user_name: true, uid: true }
+      select: {
+        user_mbti: true, user_name: true, uid: true, character_id: true,
+      }
     })
   }
 
@@ -83,6 +71,24 @@ export class UserService {
     const uid = this.jwtService.decode(token)['uid']
     await this.repository.update({ uid }, { user_mbti: mbti })
     return await this.createToken(await this.profile(uid))
+  }
+
+  async getMatch(mbti: string) {
+    return this.mbtiService.getMatch(mbti)
+  }
+
+  async createTarget(token: string, character_id: number) {
+    this.verifyToken(token)
+    const uid = this.jwtService.decode(token)['uid']
+    await this.repository.update({ uid }, { character_id })
+
+
+    return this.characterService.characterById(character_id)
+  }
+
+  async getCharacterById(character_id: number) {
+    return this.characterService.characterById(character_id)
+
   }
 
 }
